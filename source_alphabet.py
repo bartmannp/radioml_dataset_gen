@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-from gnuradio import gr, blocks
+from gnuradio import gr, blocks, audio
+from gnuradio.fft import logpwrfft
 import numpy as np
 
 class source_alphabet(gr.hier_block2):
@@ -8,14 +9,11 @@ class source_alphabet(gr.hier_block2):
             gr.hier_block2.__init__(self, "source_alphabet",
                 gr.io_signature(0, 0, 0),
                 gr.io_signature(1, 1, gr.sizeof_char))
-
             self.src = blocks.file_source(gr.sizeof_char, "source_material/gutenberg_shakespeare.txt")
             self.convert = blocks.packed_to_unpacked_bb(1, gr.GR_LSB_FIRST)
             self.limit = blocks.head(gr.sizeof_char, limit)
             self.connect(self.src, self.convert)
             last = self.convert
-
-            # whiten our sequence with a random block scrambler (optionally)
             if randomize:
                 rand_len = 256
                 rand_bits = np.random.randint(2, size=rand_len)
@@ -24,19 +22,15 @@ class source_alphabet(gr.hier_block2):
                 self.connect(self.randsrc, (self.xor, 1))
                 self.connect(last, self.xor)
                 last = self.xor
-
         else:   # "type_continuous"
             gr.hier_block2.__init__(self, "source_alphabet",
                 gr.io_signature(0, 0, 0),
                 gr.io_signature(1, 1, gr.sizeof_float))
-
-            self.src = blocks.file_source(gr.sizeof_short, "source_material/serial-s01-e01.mp3")
-            self.convert2 = blocks.interleaved_short_to_complex()
-            self.convert3 = blocks.multiply_const_cc(1.0 / 65535)
-            self.convert = blocks.complex_to_float()
+            
+            # Use GNU Radio's built-in support for reading MP3 files
+            self.src = blocks.file_source(gr.sizeof_float, "source_material/serial-s01-e01.mp3", False)
             self.limit = blocks.head(gr.sizeof_float, limit)
-            self.connect(self.src, self.convert2, self.convert3, self.convert)
-            last = self.convert
+            last = self.src
 
         # connect head or not, and connect to output
         if limit is None:
@@ -46,17 +40,18 @@ class source_alphabet(gr.hier_block2):
 
 if __name__ == "__main__":
     print("QA...")
-
     # Test discrete source
     tb = gr.top_block()
     src = source_alphabet("discrete", 1000)
     snk = blocks.vector_sink_b()
     tb.connect(src, snk)
     tb.run()
-
+    
     # Test continuous source
     tb = gr.top_block()
     src = source_alphabet("continuous", 1000)
     snk = blocks.vector_sink_f()
     tb.connect(src, snk)
     tb.run()
+
+    print("QA complete")
