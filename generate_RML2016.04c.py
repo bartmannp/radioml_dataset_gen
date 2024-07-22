@@ -5,7 +5,7 @@ import timeseries_slicer
 import analyze_stats
 from gnuradio import channels, gr, blocks
 import numpy as np
-import numpy.fft, pickle, gzip
+import numpy.fft, h5py
 
 '''
 Generate dataset with dynamic channel model across range of SNRs
@@ -34,7 +34,6 @@ for snr in snr_vals:
             ntaps = 8
             noise_amp = 10 ** (-snr / 10.0)
             print(noise_amp)
-            # noise_amp = 0.1
             chan = channels.dynamic_channel_model(200e3, 0.01, 1e2, 0.01, 1e3, 8, fD, True, 4, delays, mags, ntaps, noise_amp, 0x1337)
 
             snk = blocks.vector_sink_c()
@@ -61,8 +60,17 @@ fin_indx = min_length - 100
 for mod, snr in output:
     output[(mod, snr)] = output[(mod, snr)][start_indx:fin_indx]
 X = timeseries_slicer.slice_timeseries_dict(output, 128, 64, 1000)
-with open("RML2014.04c_dict.dat", "wb") as f:
-    pickle.dump(X, f)
-X = np.vstack(list(X.values()))
-with open("RML2016.04c.dat", "wb") as f:
-    pickle.dump(X, f)
+
+# Save the sliced dataset in HDF5 format
+with h5py.File("RML2016.04c_sliced.h5", "w") as h5f:
+    for key, value in X.items():
+        mod_type, snr = key
+        group = h5f.create_group(f"{mod_type}/{snr}")
+        group.create_dataset('data', data=value)
+
+# Save the entire dataset in HDF5 format as a stacked array
+X_stacked = np.vstack(list(X.values()))
+with h5py.File("RML2016.04c_stacked.h5", "w") as h5f:
+    h5f.create_dataset('data', data=X_stacked)
+
+print("Data saved in HDF5 format")

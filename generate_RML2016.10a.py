@@ -4,7 +4,7 @@ from source_alphabet import source_alphabet
 import analyze_stats
 from gnuradio import channels, gr, blocks
 import numpy as np
-import numpy.fft, pickle, gzip
+import numpy.fft, pickle, gzip, h5py
 import random
 
 '''
@@ -78,5 +78,11 @@ for snr in snr_vals:
                     insufficient_modsnr_vectors = False
 
 print("all done. writing to disk")
-with open("RML2016.10a_dict.dat", "wb") as f:
-    pickle.dump(dataset, f)
+
+# Save dataset in HDF5 format
+with h5py.File("RML2016.10a.h5", "w") as h5f:
+    for (mod_type, snr), data in dataset.items():
+        group = h5f.create_group(f"{mod_type}/{snr}")
+        group.create_dataset('data', data=data)
+
+print("Data saved in HDF5 format")
