@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-import time, math
+import time
+import math
 from scipy.signal import get_window
 from gnuradio import gr, blocks, digital, analog, filter
 from gnuradio.filter import firdes
@@ -13,15 +14,18 @@ class transmitter_mapper(gr.hier_block2):
             gr.io_signature(1, 1, gr.sizeof_char),
             gr.io_signature(1, 1, gr.sizeof_gr_complex))
         
-        # Use generic_mod instead of custom mapper
+        # Use digital.generic_mod instead of custom mapper
         self.mod = digital.generic_mod(
             constellation=constellation,
             differential=False,
             samples_per_symbol=samples_per_symbol,
+            pre_diff_code=True,
             excess_bw=excess_bw,
+            verbose=False,
+            log=False
         )
         
-        # pulse shaping filter
+        # Pulse shaping filter
         nfilts = 32
         ntaps = nfilts * 11 * int(samples_per_symbol)
         rrc_taps = firdes.root_raised_cosine(
@@ -48,7 +52,7 @@ class transmitter_pam4(transmitter_mapper):
     modname = "PAM4"
     def __init__(self):
         # Create a custom PAM4 constellation
-        constellation_points = [-3, -1, 1, 3]
+        constellation_points = [complex(i - 1.5, 0) for i in range(4)]
         symbol_map = [0, 1, 3, 2]  # Gray coding
         constellation = digital.constellation_rect(constellation_points, symbol_map, 4, 2, 2, 1, 1)
         super().__init__(constellation, "transmitter_pam4", sps, ebw)
@@ -97,7 +101,7 @@ class transmitter_fm(gr.hier_block2):
         gr.io_signature(1, 1, gr.sizeof_gr_complex))
         self.mod = analog.wfm_tx(audio_rate=44100.0, quad_rate=220.5e3)
         self.connect(self, self.mod, self)
-        self.rate = 200e3/44.1e3
+        self.rate = 200e3 / 44.1e3
 
 class transmitter_am(gr.hier_block2):
     modname = "AM-DSB"
@@ -105,7 +109,7 @@ class transmitter_am(gr.hier_block2):
         gr.hier_block2.__init__(self, "transmitter_am",
         gr.io_signature(1, 1, gr.sizeof_float),
         gr.io_signature(1, 1, gr.sizeof_gr_complex))
-        self.rate = 44.1e3/200e3
+        self.rate = 44.1e3 / 200e3
         self.interp = filter.mmse_resampler_ff(0.0, self.rate)
         self.cnv = blocks.float_to_complex()
         self.mul = blocks.multiply_const_cc(1.0)
@@ -113,7 +117,7 @@ class transmitter_am(gr.hier_block2):
         self.src = analog.sig_source_c(200e3, analog.GR_SIN_WAVE, 0e3, 1.0)
         self.mod = blocks.multiply_cc()
         self.connect(self, self.interp, self.cnv, self.mul, self.add, self.mod, self)
-        self.connect(self.src, (self.mod,1))
+        self.connect(self.src, (self.mod, 1))
 
 class transmitter_amssb(gr.hier_block2):
     modname = "AM-SSB"
@@ -121,7 +125,7 @@ class transmitter_amssb(gr.hier_block2):
         gr.hier_block2.__init__(self, "transmitter_amssb",
         gr.io_signature(1, 1, gr.sizeof_float),
         gr.io_signature(1, 1, gr.sizeof_gr_complex))
-        self.rate = 44.1e3/200e3
+        self.rate = 44.1e3 / 200e3
         self.interp = filter.mmse_resampler_ff(0.0, self.rate)
         self.mul = blocks.multiply_const_ff(1.0)
         self.add = blocks.add_const_ff(1.0)
@@ -129,9 +133,9 @@ class transmitter_amssb(gr.hier_block2):
         self.mod = blocks.multiply_ff()
         self.filt = filter.hilbert_fc(401)
         self.connect(self, self.interp, self.mul, self.add, self.mod, self.filt, self)
-        self.connect(self.src, (self.mod,1))
+        self.connect(self.src, (self.mod, 1))
 
 transmitters = {
-    "discrete":[transmitter_bpsk, transmitter_qpsk, transmitter_8psk, transmitter_pam4, transmitter_qam16, transmitter_qam64, transmitter_gfsk, transmitter_cpfsk],
-    "continuous":[transmitter_fm, transmitter_am, transmitter_amssb]
+    "discrete": [transmitter_bpsk, transmitter_qpsk, transmitter_8psk, transmitter_pam4, transmitter_qam16, transmitter_qam64, transmitter_gfsk, transmitter_cpfsk],
+    "continuous": [transmitter_fm, transmitter_am, transmitter_amssb]
 }

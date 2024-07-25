@@ -4,8 +4,11 @@ from source_alphabet import source_alphabet
 import analyze_stats
 from gnuradio import channels, gr, blocks
 import numpy as np
-import numpy.fft, pickle, gzip, h5py
+import numpy.fft
+import pickle
+import gzip
 import random
+import h5py
 
 '''
 Generate dataset with dynamic channel model across range of SNRs
@@ -21,13 +24,13 @@ dataset = {}
 # CIFAR-10 has 6000 samples/class. CIFAR-100 has 600. Somewhere in there seems like right order of magnitude
 nvecs_per_key = 1000
 vec_length = 128
-snr_vals = list(range(-20, 20, 2))
+snr_vals = range(-20, 20, 2)
+
 for snr in snr_vals:
     print("snr is ", snr)
     for alphabet_type in transmitters.keys():
         for i, mod_type in enumerate(transmitters[alphabet_type]):
             dataset[(mod_type.modname, snr)] = np.zeros([nvecs_per_key, 2, vec_length], dtype=np.float32)
-            # moar vectors!
             insufficient_modsnr_vectors = True
             modvec_indx = 0
             while insufficient_modsnr_vectors:
@@ -43,9 +46,7 @@ for snr in snr_vals:
                 mags = [1, 0.8, 0.3]
                 ntaps = 8
                 noise_amp = 10**(-snr/10.0)
-                chan = channels.dynamic_channel_model(
-                    200e3, 0.01, 50, .01, 0.5e3, 8, fD, True, 4, delays, mags, ntaps, noise_amp, 0x1337
-                )
+                chan = channels.dynamic_channel_model(200e3, 0.01, 50, .01, 0.5e3, 8, fD, True, 4, delays, mags, ntaps, noise_amp, 0x1337)
 
                 snk = blocks.vector_sink_c()
 
@@ -66,11 +67,11 @@ for snr in snr_vals:
                     # Normalize the energy in this vector to be 1
                     energy = np.sum((np.abs(sampled_vector)))
                     sampled_vector = sampled_vector / energy
-                    dataset[(mod_type.modname, snr)][modvec_indx,0,:] = np.real(sampled_vector)
-                    dataset[(mod_type.modname, snr)][modvec_indx,1,:] = np.imag(sampled_vector)
+                    dataset[(mod_type.modname, snr)][modvec_indx, 0, :] = np.real(sampled_vector)
+                    dataset[(mod_type.modname, snr)][modvec_indx, 1, :] = np.imag(sampled_vector)
                     # bound the upper end very high so it's likely we get multiple passes through
                     # independent channels
-                    sampler_indx += random.randint(vec_length, round(len(raw_output_vector) * .05))
+                    sampler_indx += random.randint(vec_length, round(len(raw_output_vector)*.05))
                     modvec_indx += 1
 
                 if modvec_indx == nvecs_per_key:
@@ -78,11 +79,6 @@ for snr in snr_vals:
                     insufficient_modsnr_vectors = False
 
 print("all done. writing to disk")
-
-# Save dataset in HDF5 format
-with h5py.File("RML2016.10a.h5", "w") as h5f:
-    for (mod_type, snr), data in dataset.items():
-        group = h5f.create_group(f"{mod_type}/{snr}")
-        group.create_dataset('data', data=data)
-
-print("Data saved in HDF5 format")
+with h5py.File("RML2016.10a_dict.h5", "w") as h5f:
+    for key, value in dataset.items():
+        h5f.create_dataset(f"{key[0]}_{key[1]}", data=value)
