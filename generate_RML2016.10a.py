@@ -6,6 +6,7 @@ from gnuradio import channels, gr, blocks
 import numpy as np
 import numpy.fft
 import pickle
+import _pickle as cPickle
 import gzip
 import random
 import h5py
@@ -82,3 +83,7 @@ print("all done. writing to disk")
 with h5py.File("RML2016.10a_dict.h5", "w") as h5f:
     for key, value in dataset.items():
         h5f.create_dataset(f"{key[0]}_{key[1]}", data=value)
+
+pFile = open("RML2016.10a_dict.dat", "wb" )
+cPickle.dump( dataset, pFile )
+pFile.close()
