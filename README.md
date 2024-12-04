@@ -1,4 +1,5 @@
 - Build docker image first
+  - see README in folder [docker](./docker)
 - Run docker image:
   ~~~~
   docker run --rm -v .:/app -i -t minsdr /bin/bash
